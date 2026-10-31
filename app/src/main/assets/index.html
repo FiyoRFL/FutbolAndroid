@@ -58,7 +58,7 @@ video{width:100%;height:100%;background:#000}
 <script>
 var HOST = 'http://flixtv.lat:8080', U = 'Castellanos99', P = 'Castellanos99';
 var categorias = [], canalesActuales = [], vistaActual = 'cats'; // 'cats' o 'ans'
-var foco = 0, enTele = false, catSeleccionada = null;
+var foco = 0, enTele = false, catSeleccionada = null;\nvar categoriaActualIndex = 0, solicitudCanales = 0, zappingOcupado = false;
 var $ = function(id){ return document.getElementById(id); };
 
 function api(params) {
@@ -68,40 +68,95 @@ function api(params) {
 
 function cargarCategorias() {
   $('migas').textContent = 'Categorías';
+  $('estado-red').textContent = 'Conectando al servidor...';
   api('&action=get_live_categories').then(function(res){
-    categorias = res || [];
+    categorias = Array.isArray(res) ? res : [];
+    if (!categorias.length) {
+      $('migas').textContent = 'No se pudieron cargar las categorías';
+      $('estado-red').textContent = 'Revisá la conexión con el servidor';
+      return;
+    }
     var h = '';
     categorias.forEach(function(c, i){
-      h += '<div class="card tile" data-i="'+i+'" onclick="abrirCat(\''+c.category_id+'\', \''+c.category_name.replace(/'/g, "")+'\')"><span>'+c.category_name+'</span></div>';
+      h += '<div class="card tile" data-i="'+i+'" onclick="abrirCatPorIndice('+i+')"><span></span></div>';
     });
     $('grid-categorias').innerHTML = h;
+    var cards = $('grid-categorias').querySelectorAll('.tile');
+    cards.forEach(function(card, i) {
+      card.querySelector('span').textContent = categorias[i].category_name || 'Categoría';
+    });
     $('estado-red').textContent = categorias.length + ' categorías disponibles';
-    foco = 0; actualizarFoco();
+    vistaActual = 'cats';
+    foco = 0;
+    actualizarFoco();
+  }).catch(function(){
+    $('migas').textContent = 'Error al conectar';
+    $('estado-red').textContent = 'No se pudo obtener la lista de categorías';
   });
 }
 
-function abrirCat(id, nombre) {
+function abrirCatPorIndice(indice) {
+  if (!categorias[indice]) return;
+  categoriaActualIndex = indice;
+  abrirCat(categorias[indice].category_id, categorias[indice].category_name, false);
+}
+
+function abrirCat(id, nombre, autoPlay) {
+  var indice = categorias.findIndex(function(c){ return String(c.category_id) === String(id); });
+  if (indice >= 0) categoriaActualIndex = indice;
   catSeleccionada = nombre;
   $('migas').textContent = 'Categoría: ' + nombre;
   $('grid-categorias').style.display = 'none';
   $('grid-canales').style.display = 'grid';
   $('grid-canales').innerHTML = '<div style="font-size:24px;color:var(--sol)">Cargando canales de ' + nombre + '...</div>';
   vistaActual = 'cans';
+  foco = 0;
 
-  api('&action=get_live_streams&category_id=' + id).then(function(res){
-    canalesActuales = res || [];
-    var h = '';
-    canalesActuales.forEach(function(s, i){
-      var logo = s.stream_icon ? '<img src="'+s.stream_icon+'" onerror="this.style.display=\'none\'">' : '';
-      h += '<div class="card tile" data-i="'+i+'" onclick="reproducir('+i+')">'+logo+'<span>'+s.name+'</span></div>';
-    });
-    $('grid-canales').innerHTML = h;
-    $('estado-red').textContent = canalesActuales.length + ' canales en esta categoría';
-    foco = 0; actualizarFoco();
+  var solicitud = ++solicitudCanales;
+  api('&action=get_live_streams&category_id=' + encodeURIComponent(id)).then(function(res){
+    if (solicitud !== solicitudCanales) return;
+    canalesActuales = Array.isArray(res) ? res : [];
+    renderCanales();
+    $('estado-red').textContent = canalesActuales.length + ' canales en ' + nombre;
+    if (autoPlay && canalesActuales.length) {
+      var indiceCanal = autoPlay > 0 ? 0 : canalesActuales.length - 1;
+      reproducir(indiceCanal);
+    } else {
+      actualizarFoco();
+    }
+  }).catch(function(){
+    if (solicitud !== solicitudCanales) return;
+    canalesActuales = [];
+    $('grid-canales').innerHTML = '<div style="font-size:24px;color:var(--sol)">No se pudieron cargar los canales</div>';
+    $('estado-red').textContent = 'Error cargando ' + nombre;
   });
 }
 
-function tiles() { return document.querySelectorAll('.tile'); }
+function renderCanales() {
+  var h = '';
+  canalesActuales.forEach(function(c, i){
+    h += '<div class="card tile" data-i="'+i+'" onclick="reproducir('+i+')"></div>';
+  });
+  $('grid-canales').innerHTML = h;
+  var cards = $('grid-canales').querySelectorAll('.tile');
+  cards.forEach(function(card, i) {
+    var canal = canalesActuales[i];
+    if (canal.stream_icon) {
+      var img = document.createElement('img');
+      img.src = canal.stream_icon;
+      img.onerror = function(){ this.style.display = 'none'; };
+      card.appendChild(img);
+    }
+    var span = document.createElement('span');
+    span.textContent = canal.name || 'Canal';
+    card.appendChild(span);
+  });
+}
+
+function tiles() {
+  var selector = vistaActual === 'cans' ? '#grid-canales .tile' : '#grid-categorias .tile';
+  return document.querySelectorAll(selector);
+}
 
 function actualizarFoco() {
   var t = tiles();
@@ -111,7 +166,7 @@ function actualizarFoco() {
   t.forEach(function(el, idx){
     if(idx === foco) {
       el.classList.add('foco');
-      el.scrollIntoView({behavior: 'smooth', block: 'center'});
+      el.scrollIntoView({behavior: 'auto', block: 'nearest'});
     } else {
       el.classList.remove('foco');
     }
@@ -121,13 +176,13 @@ function actualizarFoco() {
 function moverGrid(dir) {
   var t = tiles();
   if(!t.length) return;
-  // Detectar columnas aproximadas del grid
-  var cols = Math.floor($('contenido').clientWidth / 280) || 3;
+  var ancho = $('contenido').clientWidth;
+  var tarjeta = t[0].getBoundingClientRect();
+  var cols = Math.max(1, Math.floor((ancho + 20) / (tarjeta.width + 20)));
   if(dir === 'arriba') foco -= cols;
   if(dir === 'abajo') foco += cols;
   if(dir === 'izq') foco -= 1;
   if(dir === 'der') foco += 1;
-  
   if(foco < 0) foco = 0;
   if(foco >= t.length) foco = t.length - 1;
   actualizarFoco();
@@ -200,18 +255,54 @@ function salir() {
     }
 }
 
-// Cambio de canal desde las teclas CH+/CH-
+// Zapping continuo: al terminar una categoría pasa a la siguiente/anterior.
 function zapping(dir) {
-    if (!enTele || !canalesActuales.length) return;
+  if (!enTele || zappingOcupado || !canalesActuales.length) return;
+  var siguiente = (window.canalActualIndex || 0) + dir;
 
-    var actual = window.canalActualIndex || 0;
-    actual += dir;
+  if (siguiente >= 0 && siguiente < canalesActuales.length) {
+    reproducir(siguiente);
+    return;
+  }
 
-    if (actual < 0) actual = canalesActuales.length - 1;
-    if (actual >= canalesActuales.length) actual = 0;
+  if (!categorias.length) return;
+  zappingOcupado = true;
+  var total = categorias.length;
+  var paso = dir > 0 ? 1 : -1;
 
-    window.canalActualIndex = actual;
-    reproducir(actual);
+  function probarCategoria(intentos) {
+    if (intentos >= total) {
+      zappingOcupado = false;
+      $('estado-red').textContent = 'No hay más canales disponibles';
+      return;
+    }
+    categoriaActualIndex = (categoriaActualIndex + paso + total) % total;
+    var cat = categorias[categoriaActualIndex];
+    catSeleccionada = cat.category_name;
+    $('migas').textContent = 'Categoría: ' + catSeleccionada;
+    var solicitud = ++solicitudCanales;
+
+    api('&action=get_live_streams&category_id=' + encodeURIComponent(cat.category_id)).then(function(res){
+      if (solicitud !== solicitudCanales) {
+        zappingOcupado = false;
+        return;
+      }
+      var lista = Array.isArray(res) ? res : [];
+      if (!lista.length) {
+        probarCategoria(intentos + 1);
+        return;
+      }
+      canalesActuales = lista;
+      renderCanales();
+      $('estado-red').textContent = canalesActuales.length + ' canales en ' + catSeleccionada;
+      zappingOcupado = false;
+      reproducir(dir > 0 ? 0 : canalesActuales.length - 1);
+    }).catch(function(){
+      probarCategoria(intentos + 1);
+    });
+  }
+
+  probarCategoria(0);
 }
 
 function codigoTecla(e) {
