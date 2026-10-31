@@ -133,7 +133,7 @@ function moverGrid(dir) {
   actualizarFoco();
 }
 
-function reproducir(i) {
+function reproducir(i) {\n  window.canalActualIndex = i;
   var s = canalesActuales[i];
   if(!s) return;
   enTele = true;
@@ -189,6 +189,28 @@ function volverAtras() {
   }
 
   return false;
+}
+
+
+// Puente de salida solicitado por MainActivity.java
+function salir() {
+    if (enTele) {
+        volverAtras();
+    }
+}
+
+// Cambio de canal desde las teclas CH+/CH-
+function zapping(dir) {
+    if (!enTele || !canalesActuales.length) return;
+
+    var actual = window.canalActualIndex || 0;
+    actual += dir;
+
+    if (actual < 0) actual = canalesActuales.length - 1;
+    if (actual >= canalesActuales.length) actual = 0;
+
+    window.canalActualIndex = actual;
+    reproducir(actual);
 }
 
 function codigoTecla(e) {
