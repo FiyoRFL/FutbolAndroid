@@ -190,16 +190,20 @@ function moverGrid(dir) {
 }
 
 function reproducir(i) {
-  window.canalActualIndex = i;
   var s = canalesActuales[i];
-  if(!s) return;
+  if (!s) {
+    zappingOcupado = false;
+    return;
+  }
+  window.canalActualIndex = i;
+  zappingOcupado = true;
   enTele = true;
   $('tele').classList.add('on');
   $('cargando').classList.add('on');
   $('error').classList.remove('on');
 
   var streamUrl = HOST + '/live/' + U + '/' + P + '/' + s.stream_id + '.ts';
-  if(window.AndroidPlayer && AndroidPlayer.play) {
+  if (window.AndroidPlayer && AndroidPlayer.play) {
     AndroidPlayer.play(streamUrl, s.name);
     return;
   }
@@ -209,8 +213,30 @@ function reproducir(i) {
   v.play().catch(function(){});
 }
 
-$('video').addEventListener('playing', function(){ $('cargando').classList.remove('on'); });
-$('video').addEventListener('error', function(){ $('cargando').classList.remove('on'); $('error').classList.add('on'); });
+window.onNativePlayerState = function(state) {
+  if (state === 'buffering') {
+    $('cargando').classList.add('on');
+    $('error').classList.remove('on');
+  } else if (state === 'playing') {
+    $('cargando').classList.remove('on');
+    $('error').classList.remove('on');
+    zappingOcupado = false;
+  } else if (state === 'error') {
+    $('cargando').classList.remove('on');
+    $('error').classList.add('on');
+    zappingOcupado = false;
+  }
+};
+
+$('video').addEventListener('playing', function(){
+  $('cargando').classList.remove('on');
+  zappingOcupado = false;
+});
+$('video').addEventListener('error', function(){
+  $('cargando').classList.remove('on');
+  $('error').classList.add('on');
+  zappingOcupado = false;
+});
 
 
 function volverAtras() {
@@ -253,14 +279,18 @@ function volverAtras() {
 
 // Puente de salida solicitado por MainActivity.java
 function salir() {
-    if (enTele) {
-        volverAtras();
-    }
+  return volverAtras();
+}
+
+// Android consulta este resultado antes de decidir si debe cerrar la aplicación.
+function manejarAtrasDesdeAndroid() {
+  return volverAtras();
 }
 
 // Zapping continuo: al terminar una categoría pasa a la siguiente/anterior.
 function zapping(dir) {
   if (!enTele || zappingOcupado || !canalesActuales.length) return;
+  zappingOcupado = true;
   var siguiente = (window.canalActualIndex || 0) + dir;
 
   if (siguiente >= 0 && siguiente < canalesActuales.length) {
@@ -268,15 +298,17 @@ function zapping(dir) {
     return;
   }
 
-  if (!categorias.length) return;
-  zappingOcupado = true;
+  if (!categorias.length) {
+    zappingOcupado = false;
+    return;
+  }
   var total = categorias.length;
   var paso = dir > 0 ? 1 : -1;
 
   function probarCategoria(intentos) {
     if (intentos >= total) {
       zappingOcupado = false;
-      $('estado-red').textContent = 'No hay más canales disponibles';
+      $('estado-red').textContent = 'No hay canales disponibles en las categorías';
       return;
     }
     categoriaActualIndex = (categoriaActualIndex + paso + total) % total;
@@ -298,7 +330,6 @@ function zapping(dir) {
       canalesActuales = lista;
       renderCanales();
       $('estado-red').textContent = canalesActuales.length + ' canales en ' + catSeleccionada;
-      zappingOcupado = false;
       reproducir(dir > 0 ? 0 : canalesActuales.length - 1);
     }).catch(function(){
       probarCategoria(intentos + 1);
