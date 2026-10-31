@@ -3,15 +3,11 @@ name: Build Fútbol APK
 on:
   push:
     branches: [ main ]
-  push:
-    branches: [ main ]
   workflow_dispatch:
 
 jobs:
   build:
-    runs-on:
-  push:
-    branches: [ main ] ubuntu-latest
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -19,19 +15,13 @@ jobs:
       - name: Set up Java
         uses: actions/setup-java@v4
         with:
-          distribution:
-  push:
-    branches: [ main ] 'temurin'
-          java-version:
-  push:
-    branches: [ main ] '17'
+          distribution: 'temurin'
+          java-version: '17'
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
-          gradle-version:
-  push:
-    branches: [ main ] '8.9'
+          gradle-version: '8.9'
 
       - name: Build debug APK
         run: gradle --no-daemon assembleDebug
