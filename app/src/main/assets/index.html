@@ -77,8 +77,8 @@ video{width:100%;height:100%;background:#000}
 
 <script>
 var HOST = 'http://flixtv.lat:8080', U = 'Castellanos99', P = 'Castellanos99';
-var CAT_RE = /ARGENTIN|DEPORTESPREMIUM|EVENTOS|DIRECTVSPORTS/;
-var CANAL_RE = /TNT ?SPORTS|ESPN|TYC|FOX ?SPORTS|DSPORTS|DIRECTV ?SPORTS|DEPORTV/i;
+var CAT_RE = /ARGENTIN|DEPORTES|EVENTOS|DIRECTV|CINE|PREMIUM|CHILE|LATIN|FUTBOL|SPORT/;
+var CANAL_RE = /TNT|ESPN|TYC|FOX|DSPORTS|DIRECTV|DEPORTV|CINECANAL|STAR|SPACE|WARNER|HBO|UNIVERSAL|GOL|WIN|VTV|LIGA/i;
 var EVENTO_RE = /LIGA PROFESIONAL|PRIMERA NACIONAL|COPA ARGENTINA|\bLPF\b|ARGENTIN|SELECCI.N|COPA DE LA LIGA/i;
 var FUERA_RE = /\b(CH|CL|CO|EC|URU|UY|PER|PE|MX|BR|US|USA|ES|PY|BO|VE)\b|CHILE|M.XICO|BRASIL|COLOMBIA|URUGUAY|ECUADOR|PARAGUAY/i;
 var ORDEN = [/TNT/i, /ESPN ?PREMIUM/i, /TYC/i, /^ESPN/i, /FOX/i, /DSPORTS|DIRECTV/i, /DEPORTV/i];
@@ -120,7 +120,7 @@ function armar(cats, listas) {
         vistos[s.stream_id] = 1;
         eventos.push({ id: s.stream_id, tipo: 'partido', hora: hora, titulo: equipos, torneo: partes.join(' '), nombre: (hora ? hora + '  ' : '') + equipos });
       } else {
-        if (!CANAL_RE.test(nombre) || FUERA_RE.test(nombre)) return;
+        if (!CANAL_RE.test(nombre)) return;
         vistos[s.stream_id] = 1;
         var limpio = nombre.replace(/\|\s*AR(G)?\b/i, '').replace(/\bARG?\b/g, '').replace(/\b(F?HD|SD|UHD|4K)\b/gi, '').replace(/\s{2,}/g, ' ').trim();
         canales.push({ id: s.stream_id, tipo: 'canal', titulo: limpio, nombre: limpio });
