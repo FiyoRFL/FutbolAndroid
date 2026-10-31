@@ -91,7 +91,7 @@ public class MainActivity extends Activity {
                 if (isPlaying) notifyPage("playing");
             }
             @Override public void onPlayerError(PlaybackException error) {
-                playingNative = false;
+                // Mantener la sesión de TV activa: BACK y zapping siguen perteneciendo al reproductor.
                 playerView.setVisibility(View.GONE);
                 webView.setVisibility(View.VISIBLE);
                 notifyPage("error");
@@ -127,6 +127,7 @@ public class MainActivity extends Activity {
             player.setMediaItem(MediaItem.fromUri(url));
             player.prepare();
             player.play();
+            notifyPage("buffering");
         } catch (Exception ex) {
             playingNative = false;
             playerView.setVisibility(View.GONE);
@@ -146,12 +147,28 @@ public class MainActivity extends Activity {
         webView.requestFocus();
     }
 
+    private boolean isBackKey(int keyCode) {
+        return keyCode == KeyEvent.KEYCODE_BACK || keyCode == KeyEvent.KEYCODE_ESCAPE;
+    }
+
+    private void handleBackKey() {
+        if (webView == null) {
+            finish();
+            return;
+        }
+        webView.evaluateJavascript(
+                "window.manejarAtrasDesdeAndroid ? window.manejarAtrasDesdeAndroid() : false",
+                value -> {
+                    if (!"true".equals(value)) finish();
+                });
+    }
+
     @Override public boolean onKeyDown(int keyCode, KeyEvent event) {
+        if (isBackKey(keyCode)) {
+            handleBackKey();
+            return true;
+        }
         if (playingNative) {
-            if (keyCode == KeyEvent.KEYCODE_BACK || keyCode == KeyEvent.KEYCODE_ESCAPE) {
-                webView.evaluateJavascript("salir()", null);
-                return true;
-            }
             if (keyCode == KeyEvent.KEYCODE_DPAD_UP || keyCode == KeyEvent.KEYCODE_CHANNEL_UP) {
                 webView.evaluateJavascript("zapping(-1)", null);
                 return true;
@@ -165,16 +182,12 @@ public class MainActivity extends Activity {
                 else playerView.showController();
                 return true;
             }
-        } else if (keyCode == KeyEvent.KEYCODE_BACK) {
-            finish();
-            return true;
         }
         return super.onKeyDown(keyCode, event);
     }
 
     @Override public void onBackPressed() {
-        if (playingNative) webView.evaluateJavascript("salir()", null);
-        else super.onBackPressed();
+        handleBackKey();
     }
 
     @Override protected void onPause() {
