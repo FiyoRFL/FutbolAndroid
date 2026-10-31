@@ -55,16 +55,66 @@ video{width:100%;height:100%;background:#000}
   <div class="centro" id="error"><div>No se pudo reproducir el canal.<small style="display:block;color:var(--gris);margin-top:10px">Presiona ATRÁS para volver</small></div></div>
 </div>
 
+<div id="config" class="centro on" style="z-index:200">
+  <div style="width:min(560px,90vw);text-align:left">
+    <div style="font-size:30px;margin-bottom:18px">Configurar servicio</div>
+    <label style="display:block;font-size:18px;margin:10px 0 5px">Servidor (URL)</label>
+    <input id="cfg-host" autocomplete="url" placeholder="http://servidor:puerto" style="width:100%;padding:14px;font-size:18px;border-radius:8px">
+    <label style="display:block;font-size:18px;margin:10px 0 5px">Usuario</label>
+    <input id="cfg-user" autocomplete="username" style="width:100%;padding:14px;font-size:18px;border-radius:8px">
+    <label style="display:block;font-size:18px;margin:10px 0 5px">Contraseña</label>
+    <input id="cfg-pass" type="password" autocomplete="current-password" style="width:100%;padding:14px;font-size:18px;border-radius:8px">
+    <button onclick="guardarConfig()" style="margin-top:18px;padding:14px 24px;font-size:20px;font-weight:bold">Guardar y conectar</button>
+    <small style="display:block;color:var(--gris);margin-top:12px">Los datos quedan guardados localmente en este dispositivo.</small>
+  </div>
+</div>
+
 <script>
-var HOST = 'http://flixtv.lat:8080', U = 'Castellanos99', P = 'Castellanos99';
+var HOST = 'http://flixtv.lat:8080', U = '', P = '';
 var categorias = [], canalesActuales = [], vistaActual = 'cats'; // 'cats' o 'ans'
 var foco = 0, enTele = false, catSeleccionada = null;
 var categoriaActualIndex = 0, solicitudCanales = 0, zappingOcupado = false;
+var zappingDelta = 0, zappingWorker = false, zappingRevision = 0;
 var $ = function(id){ return document.getElementById(id); };
 
+function cargarConfig() {
+  try {
+    HOST = localStorage.getItem('futbol_host') || HOST;
+    U = localStorage.getItem('futbol_user') || '';
+    P = localStorage.getItem('futbol_pass') || '';
+  } catch(e) {}
+  $('cfg-host').value = HOST;
+  $('cfg-user').value = U;
+  $('cfg-pass').value = P;
+  if (U && P) {
+    $('config').classList.remove('on');
+    cargarCategorias();
+  } else {
+    $('config').classList.add('on');
+    $('migas').textContent = 'Configurá tu servicio para comenzar';
+  }
+}
+function guardarConfig() {
+  var host = $('cfg-host').value.trim().replace(/\\/$/, '');
+  var user = $('cfg-user').value.trim();
+  var pass = $('cfg-pass').value;
+  if (!host || !user || !pass) {
+    $('migas').textContent = 'Completá servidor, usuario y contraseña';
+    return;
+  }
+  HOST = host; U = user; P = pass;
+  try {
+    localStorage.setItem('futbol_host', HOST);
+    localStorage.setItem('futbol_user', U);
+    localStorage.setItem('futbol_pass', P);
+  } catch(e) {}
+  $('config').classList.remove('on');
+  cargarCategorias();
+}
 function api(params) {
-  return fetch(HOST + '/player_api.php?username=' + U + '&password=' + P + params)
-    .then(function(r){ return r.json(); }).catch(function(){ return []; });
+  var query = '?username=' + encodeURIComponent(U) + '&password=' + encodeURIComponent(P) + params;
+  return fetch(HOST + '/player_api.php' + query)
+    .then(function(r){ if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); });
 }
 
 function cargarCategorias() {
@@ -242,6 +292,9 @@ $('video').addEventListener('error', function(){
 function volverAtras() {
   if (enTele) {
     zappingOcupado = false;
+    zappingDelta = 0;
+    zappingRevision++;
+    zappingWorker = false;
     solicitudCanales++;
     enTele = false;
 
@@ -287,56 +340,80 @@ function manejarAtrasDesdeAndroid() {
   return volverAtras();
 }
 
-// Zapping continuo: al terminar una categoría pasa a la siguiente/anterior.
+// Cola de zapping: acumula órdenes durante la carga y reproduce solo el destino final.
 function zapping(dir) {
-  if (!enTele || zappingOcupado || !canalesActuales.length) return;
-  zappingOcupado = true;
-  var siguiente = (window.canalActualIndex || 0) + dir;
+  if (!enTele || !canalesActuales.length || !dir) return;
+  zappingDelta += dir > 0 ? 1 : -1;
+  if (!zappingWorker) procesarColaZapping();
+}
 
-  if (siguiente >= 0 && siguiente < canalesActuales.length) {
-    reproducir(siguiente);
-    return;
+function procesarColaZapping() {
+  if (zappingWorker || !enTele) return;
+  zappingWorker = true;
+  var revision = ++zappingRevision;
+  var categoriasVisitadas = 0;
+
+  function abortarSiCambio() {
+    return revision !== zappingRevision || !enTele;
   }
-
-  if (!categorias.length) {
+  function finalizar() {
+    if (revision !== zappingRevision) return;
+    zappingWorker = false;
     zappingOcupado = false;
-    return;
   }
-  var total = categorias.length;
-  var paso = dir > 0 ? 1 : -1;
+  function resolver() {
+    if (abortarSiCambio()) return;
+    if (!zappingDelta) { finalizar(); return; }
 
-  function probarCategoria(intentos) {
-    if (intentos >= total) {
-      zappingOcupado = false;
-      $('estado-red').textContent = 'No hay canales disponibles en las categorías';
+    var paso = zappingDelta > 0 ? 1 : -1;
+    var actual = Number(window.canalActualIndex || 0);
+    var destino = actual + zappingDelta;
+
+    if (destino >= 0 && destino < canalesActuales.length) {
+      window.canalActualIndex = destino;
+      zappingDelta = 0;
+      finalizar();
+      reproducir(destino);
       return;
     }
-    categoriaActualIndex = (categoriaActualIndex + paso + total) % total;
+
+    // Consumir los canales restantes de la categoría actual y cruzar una sola vez.
+    var pasosLocales = paso > 0
+      ? (canalesActuales.length - 1 - actual)
+      : actual;
+    zappingDelta -= pasosLocales * paso;
+    zappingDelta -= paso;
+    categoriasVisitadas++;
+    if (!categorias.length || categoriasVisitadas > categorias.length) {
+      zappingDelta = 0;
+      $('estado-red').textContent = 'No hay canales disponibles en las categorías';
+      finalizar();
+      return;
+    }
+
+    categoriaActualIndex = (categoriaActualIndex + paso + categorias.length) % categorias.length;
     var cat = categorias[categoriaActualIndex];
     catSeleccionada = cat.category_name;
     $('migas').textContent = 'Categoría: ' + catSeleccionada;
     var solicitud = ++solicitudCanales;
 
-    api('&action=get_live_streams&category_id=' + encodeURIComponent(cat.category_id)).then(function(res){
-      if (solicitud !== solicitudCanales) {
-        zappingOcupado = false;
-        return;
-      }
-      var lista = Array.isArray(res) ? res : [];
-      if (!lista.length) {
-        probarCategoria(intentos + 1);
-        return;
-      }
-      canalesActuales = lista;
-      renderCanales();
-      $('estado-red').textContent = canalesActuales.length + ' canales en ' + catSeleccionada;
-      reproducir(dir > 0 ? 0 : canalesActuales.length - 1);
-    }).catch(function(){
-      probarCategoria(intentos + 1);
-    });
+    api('&action=get_live_streams&category_id=' + encodeURIComponent(cat.category_id))
+      .then(function(res) {
+        if (abortarSiCambio() || solicitud !== solicitudCanales) return;
+        var lista = Array.isArray(res) ? res : [];
+        if (!lista.length) { resolver(); return; }
+        canalesActuales = lista;
+        renderCanales();
+        $('estado-red').textContent = lista.length + ' canales en ' + catSeleccionada;
+        window.canalActualIndex = paso > 0 ? 0 : lista.length - 1;
+        resolver();
+      })
+      .catch(function() {
+        if (abortarSiCambio()) return;
+        resolver();
+      });
   }
-
-  probarCategoria(0);
+  resolver();
 }
 
 function codigoTecla(e) {
@@ -394,7 +471,7 @@ document.addEventListener('backbutton', function(e) {
 }, true);
 
 
-cargarCategorias();
+cargarConfig();
 </script>
 </body>
 </html>
