@@ -14,6 +14,7 @@ import android.webkit.WebViewClient;
 import android.widget.FrameLayout;
 
 import androidx.media3.common.MediaItem;
+import androidx.media3.common.MediaMetadata;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.Player;
 import androidx.media3.exoplayer.ExoPlayer;
@@ -51,7 +52,17 @@ public class MainActivity extends Activity {
         settings.setMixedContentMode(WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
         webView.setBackgroundColor(Color.rgb(14, 35, 64));
         webView.setWebChromeClient(new WebChromeClient());
-        webView.setWebViewClient(new WebViewClient());
+        webView.setWebViewClient(new WebViewClient() {
+            @Override public void onPageFinished(WebView view, String url) {
+                super.onPageFinished(view, url);
+                String inject = "(function(){"
+                        + "if(window.__majisAssetsLoaded)return;window.__majisAssetsLoaded=true;"
+                        + "var css=document.createElement('link');css.rel='stylesheet';css.href='file:///android_asset/majis.css';document.head.appendChild(css);"
+                        + "var js=document.createElement('script');js.src='file:///android_asset/majis.js';document.body.appendChild(js);"
+                        + "})();";
+                view.evaluateJavascript(inject, null);
+            }
+        });
         webView.addJavascriptInterface(new AndroidPlayerBridge(), "AndroidPlayer");
         root.addView(webView, new FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT));
@@ -108,14 +119,14 @@ public class MainActivity extends Activity {
 
     private class AndroidPlayerBridge {
         @JavascriptInterface public void play(String url, String title) {
-            runOnUiThread(() -> startNativePlayback(url));
+            runOnUiThread(() -> startNativePlayback(url, title));
         }
         @JavascriptInterface public void stop() {
             runOnUiThread(() -> stopNativePlayback());
         }
     }
 
-    private void startNativePlayback(String url) {
+    private void startNativePlayback(String url, String title) {
         if (player == null) initPlayer();
         playingNative = true;
         webView.setVisibility(View.GONE);
@@ -124,7 +135,9 @@ public class MainActivity extends Activity {
         try {
             player.stop();
             player.clearMediaItems();
-            player.setMediaItem(MediaItem.fromUri(url));
+            MediaMetadata metadata = new MediaMetadata.Builder().setTitle(title == null ? "" : title).build();
+            MediaItem item = new MediaItem.Builder().setUri(url).setMediaMetadata(metadata).build();
+            player.setMediaItem(item);
             player.prepare();
             player.play();
             notifyPage("buffering");
