@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Fútbol</title>
+<style>
+@font-face{font-family:"Barlow C";font-weight:500;src:url(fonts/barlow-condensed-latin-500-normal.woff2) format("woff2")}
+@font-face{font-family:"Barlow C";font-weight:700;src:url(fonts/barlow-condensed-latin-700-normal.woff2) format("woff2")}
+@font-face{font-family:"Barlow C";font-weight:800;src:url(fonts/barlow-condensed-latin-800-normal.woff2) format("woff2")}
+:root{
+  --noche:#0E2340; --franja:#16325A; --celeste:#75AADB; --blanco:#FFFFFF; --sol:#F6B40E; --gris:#A9BED8;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent} body{touch-action:pan-y} .tile{cursor:pointer;user-select:none}
+html,body{width:100%;height:100%;min-height:100%;overflow:hidden;background:var(--noche);color:var(--blanco);
+  font-family:"Barlow C","LG Smart UI",sans-serif;font-weight:500}
+#lista{position:absolute;top:0;left:0;right:0;bottom:0;display:flex;flex-direction:column}
+header{display:flex;align-items:flex-end;justify-content:space-between;padding:clamp(16px,3.2vw,48px) clamp(18px,5vw,96px) 18px;
+  border-bottom:6px solid var(--celeste)}
+header h1{font-size:clamp(38px,5vw,76px);font-weight:800;line-height:1;letter-spacing:1px}
+.reloj{text-align:right}
+.reloj b{display:block;font-size:clamp(34px,4.5vw,68px);font-weight:800;line-height:1;color:var(--sol)}
+.reloj span{font-size:clamp(13px,1.8vw,25px);color:var(--gris)}
+#scroll{flex:1;overflow:auto;padding:12px clamp(18px,5vw,96px) 110px;position:relative;overscroll-behavior:contain}
+h2{font-size:clamp(24px,3vw,40px);font-weight:700;color:var(--celeste);margin:36px 0 20px}
+.aviso{font-size:clamp(17px,2.1vw,28px);color:var(--gris);padding:12px 0;max-width:1500px;line-height:1.25}
+.partidos{display:flex;flex-direction:column;gap:18px}
+.partido{display:flex;align-items:center;gap:40px;background:var(--franja);border-radius:20px;
+  padding:22px 36px;border:6px solid transparent}
+.partido .hora{font-size:clamp(26px,3.5vw,54px);font-weight:800;color:var(--sol);min-width:170px}
+.partido .equipos{font-size:clamp(22px,3vw,44px);font-weight:700;line-height:1.05}
+.partido .torneo{font-size:clamp(14px,1.7vw,24px);color:var(--celeste);margin-top:4px}
+.canales{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,220px),1fr));gap:12px}
+.canal{background:var(--franja);border-radius:16px;min-height:clamp(76px,11vw,130px);padding:16px 20px;
+  display:flex;align-items:center;font-size:clamp(20px,2.5vw,36px);font-weight:700;line-height:1.05;border:6px solid transparent}
+.tile.foco{background:var(--sol);color:var(--noche);border-color:var(--blanco);transform:scale(1.03)}
+.tile.foco .hora,.tile.foco .torneo{color:var(--noche)}
+.tile{transition:transform .12s ease-out}
+.pie{position:absolute;left:0;right:0;bottom:0;padding:14px clamp(18px,5vw,96px);background:var(--noche);
+  border-top:2px solid var(--franja);font-size:clamp(13px,1.8vw,25px);color:var(--gris);display:flex;justify-content:space-between}
+.pie b{color:var(--blanco);font-weight:700}
+
+#tele{position:absolute;top:0;left:0;right:0;bottom:0;background:#000;display:none}
+#tele.on{display:block}
+video{width:100%;height:100%;background:#000}
+.cartel{position:absolute;left:5%;right:5%;bottom:6%;background:rgba(14,35,64,.92);
+  border-left:14px solid var(--sol);border-radius:16px;padding:28px 40px;transition:opacity .4s}
+.cartel b{display:block;font-size:clamp(28px,4vw,52px);font-weight:800;line-height:1.05}
+.cartel span{font-size:clamp(16px,2vw,28px);color:var(--gris)}
+.cartel.oculto{opacity:0}
+.centro{position:absolute;top:0;left:0;right:0;bottom:0;display:none;align-items:center;justify-content:center;text-align:center}
+.centro.on{display:flex}
+.centro div{background:rgba(14,35,64,.95);border-radius:24px;padding:clamp(24px,5vw,48px);font-size:clamp(25px,4vw,46px);font-weight:700;max-width:1300px;line-height:1.2}
+.centro small{display:block;font-size:clamp(16px,2.5vw,30px);font-weight:500;color:var(--gris);margin-top:18px}
+.pelota{width:90px;height:90px;border-radius:50%;border:12px solid var(--celeste);border-top-color:var(--sol);
+  margin:0 auto 28px;animation:gira 1s linear infinite}
+@keyframes gira{to{transform:rotate(360deg)}}
+@media(max-width:600px){header{align-items:center;padding-top:18px}header h1{font-size:38px}.reloj b{font-size:32px}.reloj span{font-size:12px}#scroll{padding-bottom:92px}.partido{gap:14px;padding:14px;border-radius:12px;border-width:3px}.partido .hora{min-width:66px;font-size:24px}.partido .equipos{font-size:21px}.partido .torneo{font-size:13px}.canales{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.canal{min-height:72px;padding:12px;font-size:18px;border-radius:12px;border-width:3px}.pie{font-size:12px;padding:12px 16px}.cartel{left:4%;right:4%;bottom:4%;padding:16px}.cartel b{font-size:25px}.cartel span{font-size:14px}}
+</style>
+</head>
+<body>
+<div id="lista">
+  <header>
+    <h1>Fútbol</h1>
+    <div class="reloj"><b id="hora">--:--</b><span id="fecha"></span></div>
+  </header>
+  <div id="scroll"><div id="contenido"><p class="aviso">Cargando los canales…</p></div></div>
+  <div class="pie"><span>Elegí con las flechas y apretá <b>OK</b> para mirar</span><span id="estado"></span></div>
+</div>
+
+<div id="tele">
+  <video id="video" autoplay></video>
+  <div class="centro" id="cargando"><div><div class="pelota"></div>Cargando el canal…</div></div>
+  <div class="centro" id="error"><div>Este canal no está andando ahora.<small>Apretá ATRÁS para volver y elegí otro, o cambiá con las flechas arriba y abajo.</small></div></div>
+  <div class="cartel oculto" id="cartel"><b id="cartelNombre"></b><span>Arriba y abajo cambian de canal. ATRÁS vuelve a la lista.</span></div>
+</div>
+
+<script>
+var HOST = 'http://flixtv.lat:8080', U = 'Castellanos99', P = 'Castellanos99';
+var CAT_RE = /ARGENTIN|DEPORTESPREMIUM|EVENTOS|DIRECTVSPORTS/;
+var CANAL_RE = /TNT ?SPORTS|ESPN|TYC|FOX ?SPORTS|DSPORTS|DIRECTV ?SPORTS|DEPORTV/i;
+var EVENTO_RE = /LIGA PROFESIONAL|PRIMERA NACIONAL|COPA ARGENTINA|\bLPF\b|ARGENTIN|SELECCI.N|COPA DE LA LIGA/i;
+var FUERA_RE = /\b(CH|CL|CO|EC|URU|UY|PER|PE|MX|BR|US|USA|ES|PY|BO|VE)\b|CHILE|M.XICO|BRASIL|COLOMBIA|URUGUAY|ECUADOR|PARAGUAY/i;
+var ORDEN = [/TNT/i, /ESPN ?PREMIUM/i, /TYC/i, /^ESPN/i, /FOX/i, /DSPORTS|DIRECTV/i, /DEPORTV/i];
+var REFRESCO = 15 * 60 * 1000;
+
+var items = [], foco = 0, enTele = false, actual = -1, formatos = ['m3u8', 'ts'], intento = 0;
+var ultimaCarga = 0, timerCartel = null, timerTraba = null;
+var $ = function (id) { return document.getElementById(id); };
+
+function norm(s) { return (s || '').toUpperCase().normalize('NFD').replace(/[^A-Z]/g, ''); }
+function clave(s) { return (s || '').toUpperCase().normalize('NFD').replace(/[^A-Z0-9+]/g, ''); }
+function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
+
+function api(params) {
+  var ctrl = new AbortController();
+  var t = setTimeout(function () { ctrl.abort(); }, 25000);
+  return fetch(HOST + '/player_api.php?username=' + U + '&password=' + P + params, { cache: 'no-store', signal: ctrl.signal })
+    .then(function (r) { clearTimeout(t); if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); });
+}
+
+function prioridad(nombre) {
+  for (var i = 0; i < ORDEN.length; i++) if (ORDEN[i].test(nombre)) return i;
+  return ORDEN.length;
+}
+
+function armar(cats, listas) {
+  var eventos = [], canales = [], vistos = {}, nombres = {};
+  cats.forEach(function (cat, k) {
+    var esEventos = /EVENTOS/.test(norm(cat.category_name));
+    (listas[k] || []).forEach(function (s) {
+      if (vistos[s.stream_id]) return;
+      var nombre = (s.name || '').trim();
+      var conHora = /^\s*\d{1,2}:\d{2}/.test(nombre);
+      if (esEventos || conHora) {
+        if (!EVENTO_RE.test(nombre)) return;
+        var partes = nombre.split('|').map(function (x) { return x.trim(); }).filter(Boolean);
+        var hora = conHora ? partes.shift() : '';
+        var equipos = partes.shift() || nombre;
+        vistos[s.stream_id] = 1;
+        eventos.push({ id: s.stream_id, tipo: 'partido', hora: hora, titulo: equipos, torneo: partes.join(' '), nombre: (hora ? hora + '  ' : '') + equipos });
+      } else {
+        if (!CANAL_RE.test(nombre) || FUERA_RE.test(nombre)) return;
+        vistos[s.stream_id] = 1;
+        var limpio = nombre.replace(/\|\s*AR(G)?\b/i, '').replace(/\bARG?\b/g, '').replace(/\b(F?HD|SD|UHD|4K)\b/gi, '').replace(/\s{2,}/g, ' ').trim();
+        canales.push({ id: s.stream_id, tipo: 'canal', titulo: limpio, nombre: limpio });
+      }
+    });
+  });
+  var mins = function (h) { var m = /(\d{1,2}):(\d{2})/.exec(h); return m ? +m[1] * 60 + +m[2] : 9999; };
+  eventos.sort(function (a, b) { return mins(a.hora) - mins(b.hora); });
+  canales.sort(function (a, b) { return prioridad(a.titulo) - prioridad(b.titulo) || clave(a.titulo).localeCompare(clave(b.titulo)); });
+  eventos.concat(canales).forEach(function (it) {
+    var k = it.tipo + clave(it.titulo);
+    if (!nombres[k]) nombres[k] = { n: 0, titulo: it.titulo };
+    nombres[k].n++;
+    if (nombres[k].n > 1) {
+      it.opcion = nombres[k].n; it.titulo = nombres[k].titulo;
+      it.nombre = (it.hora ? it.hora + '  ' : '') + it.titulo + ' (opción ' + it.opcion + ')';
+    }
+  });
+  return { eventos: eventos, canales: canales };
+}
+
+function cargar() {
+  $('estado').textContent = 'Actualizando…';
+  return api('').then(function (info) {
+    var f = (info && info.user_info && info.user_info.allowed_output_formats) || [];
+    if (f.length) formatos = f.indexOf('m3u8') >= 0 ? ['m3u8'].concat(f.indexOf('ts') >= 0 ? ['ts'] : []) : f.slice();
+    return api('&action=get_live_categories');
+  }).then(function (todas) {
+    var cats = todas.filter(function (c) { return CAT_RE.test(norm(c.category_name)); });
+    return Promise.all(cats.map(function (c) {
+      return api('&action=get_live_streams&category_id=' + c.category_id).catch(function () { return []; });
+    })).then(function (listas) { return armar(cats, listas); });
+  }).then(function (datos) {
+    try { localStorage.setItem('lista', JSON.stringify(datos)); localStorage.setItem('formatos', JSON.stringify(formatos)); } catch (e) {}
+    ultimaCarga = Date.now();
+    mostrar(datos, '');
+  }).catch(function () {
+    var guardada = null;
+    try { guardada = JSON.parse(localStorage.getItem('lista')); formatos = JSON.parse(localStorage.getItem('formatos')) || formatos; } catch (e) {}
+    if (guardada) mostrar(guardada, 'No hay conexión con el servidor. Esta es la última lista guardada; se vuelve a intentar sola en un minuto.');
+    else mostrar({ eventos: [], canales: [] }, 'No se pudo cargar la lista. Revisá que la tele tenga internet; se vuelve a intentar sola en un minuto.');
+    ultimaCarga = Date.now() - REFRESCO + 60000;
+  });
+}
+
+function mostrar(datos, aviso) {
+  var elegido = items[foco] ? items[foco].nombre : localStorage.getItem('ultimo');
+  items = datos.eventos.concat(datos.canales);
+  var h = '';
+  if (aviso) h += '<p class="aviso">' + esc(aviso) + '</p>';
+  h += '<h2>Partidos de hoy</h2>';
+  if (!datos.eventos.length) h += '<p class="aviso">Por ahora no hay partidos argentinos en la lista. Se actualiza sola cada 15 minutos.</p>';
+  h += '<div class="partidos">';
+  datos.eventos.forEach(function (it, i) {
+    h += '<div class="tile partido" data-i="' + i + '"><div class="hora">' + esc(it.hora || 'Hoy') + '</div><div><div class="equipos">' +
+      esc(it.titulo) + (it.opcion ? ' <small>(opción ' + it.opcion + ')</small>' : '') + '</div><div class="torneo">' + esc(it.torneo) + '</div></div></div>';
+  });
+  h += '</div><h2>Canales</h2><div class="canales">';
+  datos.canales.forEach(function (it, j) {
+    h += '<div class="tile canal" data-i="' + (datos.eventos.length + j) + '">' + esc(it.titulo) + (it.opcion ? ' (' + it.opcion + ')' : '') + '</div>';
+  });
+  h += '</div>';
+  $('contenido').innerHTML = h;
+  var n = 0;
+  for (var k = 0; k < items.length; k++) if (items[k].nombre === elegido) { n = k; break; }
+  enfocar(n);
+  var d = new Date();
+  $('estado').textContent = aviso ? '' : 'Actualizado a las ' + pad(d.getHours()) + ':' + pad(d.getMinutes());
+}
+
+function tiles() { return document.querySelectorAll('.tile'); }
+function enfocar(i) {
+  var t = tiles(); if (!t.length) return;
+  i = Math.max(0, Math.min(t.length - 1, i));
+  if (t[foco]) t[foco].classList.remove('foco');
+  foco = i; t[i].classList.add('foco');
+  var sc = $('scroll'), r = t[i].getBoundingClientRect(), s = sc.getBoundingClientRect();
+  if (r.top < s.top + 80) sc.scrollTop -= (s.top + 80 - r.top);
+  else if (r.bottom > s.bottom - 160) sc.scrollTop += (r.bottom - (s.bottom - 160));
+  if (i === 0) sc.scrollTop = 0;
+}
+function mover(dx, dy) {
+  var t = tiles(); if (!t.length) return;
+  var a = t[foco].getBoundingClientRect(), ax = a.left + a.width / 2, ay = a.top + a.height / 2, mejor = -1, md = 1e9;
+  for (var i = 0; i < t.length; i++) {
+    if (i === foco) continue;
+    var b = t[i].getBoundingClientRect(), bx = b.left + b.width / 2, by = b.top + b.height / 2;
+    var vx = bx - ax, vy = by - ay;
+    if (dx && (dx * vx <= 10 || Math.abs(vy) > a.height / 2)) continue;
+    if (dy && dy * vy <= 10) continue;
+    var dist = dy ? Math.abs(vy) * 1 + Math.abs(vx) * 0.6 : Math.abs(vx);
+    if (dist < md) { md = dist; mejor = i; }
+  }
+  if (mejor >= 0) enfocar(mejor);
+}
+
+function url(id, ext) { return HOST + '/live/' + U + '/' + P + '/' + id + '.' + ext; }
+function mirar(i) {
+  if (!items[i]) return;
+  actual = i; intento = 0; enTele = true;
+  try { localStorage.setItem('ultimo', items[i].nombre); } catch (e) {}
+  $('lista').style.display = 'none'; $('tele').classList.add('on');
+  cartel(items[i].nombre);
+  arrancar();
+}
+function arrancar() {
+  var v = $('video');
+  $('error').classList.remove('on'); $('cargando').classList.add('on');
+  clearTimeout(timerTraba);
+  timerTraba = setTimeout(fallo, 30000);
+  var streamUrl = url(items[actual].id, formatos[intento] || 'm3u8');
+  if (window.AndroidPlayer && AndroidPlayer.play) { AndroidPlayer.play(streamUrl, items[actual].nombre); return; }
+  v.src = streamUrl; v.load();
+  var p = v.play(); if (p && p.catch) p.catch(function () {});
+}
+function fallo() {
+  if (!enTele) return;
+  intento++;
+  if (intento < formatos.length) { arrancar(); return; }
+  clearTimeout(timerTraba);
+  $('cargando').classList.remove('on'); $('error').classList.add('on');
+}
+function salir() {
+  var v = $('video'); clearTimeout(timerTraba);
+  if (window.AndroidPlayer && AndroidPlayer.stop) AndroidPlayer.stop();
+  v.pause(); v.removeAttribute('src'); v.load();
+  enTele = false; $('tele').classList.remove('on'); $('lista').style.display = '';
+  $('cargando').classList.remove('on'); $('error').classList.remove('on');
+  enfocar(actual);
+  if (Date.now() - ultimaCarga > REFRESCO) cargar();
+}
+function cartel(txt) {
+  $('cartelNombre').textContent = txt; $('cartel').classList.remove('oculto');
+  clearTimeout(timerCartel); timerCartel = setTimeout(function () { $('cartel').classList.add('oculto'); }, 5000);
+}
+function zapping(d) {
+  if (!items.length) return;
+  mirar((actual + d + items.length) % items.length);
+}
+
+$('video').addEventListener('playing', function () { clearTimeout(timerTraba); $('cargando').classList.remove('on'); $('error').classList.remove('on'); });
+window.onNativePlayerState = function(state) {
+  if (!enTele) return;
+  if (state === 'playing') { clearTimeout(timerTraba); $('cargando').classList.remove('on'); $('error').classList.remove('on'); }
+  else if (state === 'buffering') { $('cargando').classList.add('on'); }
+  else if (state === 'error') { fallo(); }
+};
+$('video').addEventListener('error', function () { if (enTele) fallo(); });
+$('video').addEventListener('waiting', function () { if (enTele) $('cargando').classList.add('on'); });
+
+document.addEventListener('keydown', function (e) {
+  var k = e.keyCode;
+  if (enTele) {
+    if (k === 461 || k === 8 || k === 27) salir();
+    else if (k === 38 || k === 33) zapping(-1);
+    else if (k === 40 || k === 34) zapping(1);
+    else if (k === 13 || k === 37 || k === 39) cartel(items[actual].nombre);
+    else return;
+  } else {
+    if (k === 37) mover(-1, 0);
+    else if (k === 39) mover(1, 0);
+    else if (k === 38) mover(0, -1);
+    else if (k === 40) mover(0, 1);
+    else if (k === 13) mirar(foco);
+    else return;
+  }
+  e.preventDefault();
+});
+document.addEventListener('mousemove', function (e) {
+  if (enTele) { cartel(items[actual].nombre); return; }
+  var t = e.target.closest && e.target.closest('.tile');
+  if (t) { var i = +t.getAttribute('data-i'); if (i !== foco) { tiles()[foco].classList.remove('foco'); foco = i; t.classList.add('foco'); } }
+});
+document.addEventListener('click', function (e) {
+  if (enTele) return;
+  var t = e.target.closest && e.target.closest('.tile');
+  if (t) mirar(+t.getAttribute('data-i'));
+});
+document.addEventListener('webOSRelaunch', function () { if (enTele) salir(); });
+
+var DIAS = ['domingo','lunes','martes','miércoles','jueves','viernes','sábado'];
+var MESES = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+function pad(n) { return (n < 10 ? '0' : '') + n; }
+function reloj() {
+  var d = new Date();
+  $('hora').textContent = pad(d.getHours()) + ':' + pad(d.getMinutes());
+  $('fecha').textContent = DIAS[d.getDay()] + ' ' + d.getDate() + ' de ' + MESES[d.getMonth()];
+}
+reloj(); setInterval(reloj, 15000);
+setInterval(function () { if (!enTele && Date.now() - ultimaCarga > REFRESCO) cargar(); }, 30000);
+cargar();
+</script>
+</body>
+</html>
