@@ -58,7 +58,8 @@ video{width:100%;height:100%;background:#000}
 <script>
 var HOST = 'http://flixtv.lat:8080', U = 'Castellanos99', P = 'Castellanos99';
 var categorias = [], canalesActuales = [], vistaActual = 'cats'; // 'cats' o 'ans'
-var foco = 0, enTele = false, catSeleccionada = null;\nvar categoriaActualIndex = 0, solicitudCanales = 0, zappingOcupado = false;
+var foco = 0, enTele = false, catSeleccionada = null;
+var categoriaActualIndex = 0, solicitudCanales = 0, zappingOcupado = false;
 var $ = function(id){ return document.getElementById(id); };
 
 function api(params) {
@@ -214,6 +215,8 @@ $('video').addEventListener('error', function(){ $('cargando').classList.remove(
 
 function volverAtras() {
   if (enTele) {
+    zappingOcupado = false;
+    solicitudCanales++;
     enTele = false;
 
     $('tele').classList.remove('on');
