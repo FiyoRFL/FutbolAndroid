@@ -55,62 +55,14 @@ video{width:100%;height:100%;background:#000}
   <div class="centro" id="error"><div>No se pudo reproducir el canal.<small style="display:block;color:var(--gris);margin-top:10px">Presiona ATRÁS para volver</small></div></div>
 </div>
 
-<div id="config" class="centro on" style="z-index:200">
-  <div style="width:min(560px,90vw);text-align:left">
-    <div style="font-size:30px;margin-bottom:18px">Configurar servicio</div>
-    <label style="display:block;font-size:18px;margin:10px 0 5px">Servidor (URL)</label>
-    <input id="cfg-host" autocomplete="url" placeholder="http://servidor:puerto" style="width:100%;padding:14px;font-size:18px;border-radius:8px">
-    <label style="display:block;font-size:18px;margin:10px 0 5px">Usuario</label>
-    <input id="cfg-user" autocomplete="username" style="width:100%;padding:14px;font-size:18px;border-radius:8px">
-    <label style="display:block;font-size:18px;margin:10px 0 5px">Contraseña</label>
-    <input id="cfg-pass" type="password" autocomplete="current-password" style="width:100%;padding:14px;font-size:18px;border-radius:8px">
-    <button onclick="guardarConfig()" style="margin-top:18px;padding:14px 24px;font-size:20px;font-weight:bold">Guardar y conectar</button>
-    <small style="display:block;color:var(--gris);margin-top:12px">Los datos quedan guardados localmente en este dispositivo.</small>
-  </div>
-</div>
-
 <script>
-var HOST = 'http://flixtv.lat:8080', U = '', P = '';
+var HOST = 'http://flixtv.lat:8080', U = 'Castellanos99', P = 'Castellanos99';
 var categorias = [], canalesActuales = [], vistaActual = 'cats'; // 'cats' o 'ans'
 var foco = 0, enTele = false, catSeleccionada = null;
 var categoriaActualIndex = 0, solicitudCanales = 0, zappingOcupado = false;
 var zappingDelta = 0, zappingWorker = false, zappingRevision = 0;
 var $ = function(id){ return document.getElementById(id); };
 
-function cargarConfig() {
-  try {
-    HOST = localStorage.getItem('futbol_host') || HOST;
-    U = localStorage.getItem('futbol_user') || '';
-    P = localStorage.getItem('futbol_pass') || '';
-  } catch(e) {}
-  $('cfg-host').value = HOST;
-  $('cfg-user').value = U;
-  $('cfg-pass').value = P;
-  if (U && P) {
-    $('config').classList.remove('on');
-    cargarCategorias();
-  } else {
-    $('config').classList.add('on');
-    $('migas').textContent = 'Configurá tu servicio para comenzar';
-  }
-}
-function guardarConfig() {
-  var host = $('cfg-host').value.trim().replace(/\\/$/, '');
-  var user = $('cfg-user').value.trim();
-  var pass = $('cfg-pass').value;
-  if (!host || !user || !pass) {
-    $('migas').textContent = 'Completá servidor, usuario y contraseña';
-    return;
-  }
-  HOST = host; U = user; P = pass;
-  try {
-    localStorage.setItem('futbol_host', HOST);
-    localStorage.setItem('futbol_user', U);
-    localStorage.setItem('futbol_pass', P);
-  } catch(e) {}
-  $('config').classList.remove('on');
-  cargarCategorias();
-}
 function api(params) {
   var query = '?username=' + encodeURIComponent(U) + '&password=' + encodeURIComponent(P) + params;
   return fetch(HOST + '/player_api.php' + query)
@@ -484,7 +436,7 @@ document.addEventListener('backbutton', function(e) {
 }, true);
 
 
-cargarConfig();
+cargarCategorias();
 </script>
 </body>
 </html>
