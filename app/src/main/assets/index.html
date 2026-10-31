@@ -155,40 +155,96 @@ function reproducir(i) {
 $('video').addEventListener('playing', function(){ $('cargando').classList.remove('on'); });
 $('video').addEventListener('error', function(){ $('cargando').classList.remove('on'); $('error').classList.add('on'); });
 
-document.addEventListener('keydown', function(e){
-  var k = e.keyCode;
-  if(enTele) {
-    if(k === 461 || k === 8 || k === 27 || k === 4) { // Botón Atrás
-      enTele = false;
-      $('tele').classList.remove('on');
-      var v = $('video'); v.pause(); v.removeAttribute('src');
-      if(window.AndroidPlayer && AndroidPlayer.stop) AndroidPlayer.stop();
+
+function volverAtras() {
+  if (enTele) {
+    enTele = false;
+
+    $('tele').classList.remove('on');
+    $('cargando').classList.remove('on');
+    $('error').classList.remove('on');
+
+    var v = $('video');
+    v.pause();
+    v.removeAttribute('src');
+    v.load();
+
+    if (window.AndroidPlayer && AndroidPlayer.stop) {
+      try { AndroidPlayer.stop(); } catch(err) {}
     }
+
+    return true;
+  }
+
+  if (vistaActual === 'cans') {
+    $('grid-canales').style.display = 'none';
+    $('grid-categorias').style.display = 'grid';
+
+    vistaActual = 'cats';
+    $('migas').textContent = 'Categorías';
+
+    foco = 0;
+    actualizarFoco();
+    return true;
+  }
+
+  return false;
+}
+
+function codigoTecla(e) {
+  return e.keyCode || e.which || 0;
+}
+
+document.addEventListener('keydown', function(e) {
+  var k = codigoTecla(e);
+  var key = (e.key || '').toLowerCase();
+
+  var esAtras =
+    k === 461 || k === 8 || k === 27 || k === 4 ||
+    key === 'escape' || key === 'back' || key === 'browserback';
+
+  if (esAtras) {
+    e.preventDefault();
+    e.stopPropagation();
+    volverAtras();
     return;
   }
 
-  // Navegación en menús
-  if(k === 38) { moverGrid('arriba'); e.preventDefault(); } // Arriba
-  else if(k === 40) { moverGrid('abajo'); e.preventDefault(); } // Abajo
-  else if(k === 37) { moverGrid('izq'); e.preventDefault(); } // Izquierda
-  else if(k === 38) { moverGrid('arriba'); e.preventDefault(); }
-  else if(k === 39) { moverGrid('der'); e.preventDefault(); } // Derecha
-  else if(k === 13 || k === 23) { // OK / Enter
-    var t = tiles();
-    if(t[foco]) t[foco].click();
+  if (enTele) {
+    // Permitir que el reproductor gestione sus propios controles.
+    return;
+  }
+
+  if (k === 38 || key === 'arrowup') {
+    moverGrid('arriba');
     e.preventDefault();
   }
-  else if(k === 461 || k === 8 || k === 27 || k === 4) { // Botón Atrás en control remoto
-    if(vistaActual === 'cans') {
-      $('grid-canales').style.display = 'none';
-      $('grid-categorias').style.display = 'grid';
-      vistaActual = 'cats';
-      $('migas').textContent = 'Categorías';
-      foco = 0; actualizarFoco();
-      e.preventDefault();
-    }
+  else if (k === 40 || key === 'arrowdown') {
+    moverGrid('abajo');
+    e.preventDefault();
   }
-});
+  else if (k === 37 || key === 'arrowleft') {
+    moverGrid('izq');
+    e.preventDefault();
+  }
+  else if (k === 39 || key === 'arrowright') {
+    moverGrid('der');
+    e.preventDefault();
+  }
+  else if (k === 13 || k === 23 || k === 66 ||
+           key === 'enter' || key === ' ') {
+    var t = tiles();
+    if (t[foco]) t[foco].click();
+    e.preventDefault();
+  }
+}, true);
+
+// Compatibilidad con eventos de navegación Android.
+document.addEventListener('backbutton', function(e) {
+  if (e) e.preventDefault();
+  volverAtras();
+}, true);
+
 
 cargarCategorias();
 </script>
