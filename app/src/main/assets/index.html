@@ -401,15 +401,28 @@ function procesarColaZapping() {
       .then(function(res) {
         if (abortarSiCambio() || solicitud !== solicitudCanales) return;
         var lista = Array.isArray(res) ? res : [];
-        if (!lista.length) { resolver(); return; }
+        if (!lista.length) {
+          // Categoría vacía: seguir buscando en la misma dirección sin gastar otra pulsación.
+          zappingDelta += paso;
+          resolver();
+          return;
+        }
         canalesActuales = lista;
         renderCanales();
         $('estado-red').textContent = lista.length + ' canales en ' + catSeleccionada;
         window.canalActualIndex = paso > 0 ? 0 : lista.length - 1;
+        if (!zappingDelta) {
+          var destinoFinal = window.canalActualIndex;
+          finalizar();
+          reproducir(destinoFinal);
+          return;
+        }
         resolver();
       })
       .catch(function() {
         if (abortarSiCambio()) return;
+        // Si falla una categoría, probar la siguiente en el mismo sentido.
+        zappingDelta += paso;
         resolver();
       });
   }
